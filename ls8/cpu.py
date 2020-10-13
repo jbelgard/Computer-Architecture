@@ -2,12 +2,29 @@
 
 import sys
 
+#Program Actions
+LDI = 0b10000010
+PRN = 0b01000111
+HLT = 0b00000001
+
 class CPU:
     """Main CPU class."""
 
     def __init__(self):
         """Construct a new CPU."""
-        pass
+        self.ram = [0] * 256
+        self.reg = [0] * 8
+        self.pc = 0
+
+    #access the RAM inside the CPU object MAR (Memory Address Register) - contains the address that is being read / written to
+    def ram_read(self, MAR):
+        #accepts the address to read and return the value stored there
+        print(self.ram[MAR])
+        return self.ram[MAR]
+
+    #access the RAM inside the CPU object MDR (Memory Data Register) - contains the data that was read or the data to write
+    def ram_write(self, MDR, MAR):
+        self.ram[MAR] = MDR
 
     def load(self):
         """Load a program into memory."""
@@ -62,4 +79,27 @@ class CPU:
 
     def run(self):
         """Run the CPU."""
-        pass
+        running = True
+
+        while running:
+            #read the memory address (MAR) that's stored in register PC (self.pc) store the result in IR (Instruction Register)
+            IR = self.ram_read(self.pc)
+
+            #read bytes at PC + 1 and PC + 2 from RAM into variables aperand_a and operand_b
+            operand_a = self.ram_read(self.pc + 1)
+            operand_b = self.ram_read(self.pc + 2)
+
+            #Halt
+            if IR == HLT:
+                running = False
+                self.pc += 1
+
+            #Print
+            elif IR == PRN:
+                print(self.reg[operand_a])
+                self.pc += 2
+
+            #Load Immediate
+            elif IR == LDI:
+                self.reg[operand_a] = operand_b
+                self.pc += 3
