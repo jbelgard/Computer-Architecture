@@ -7,6 +7,8 @@ LDI = 0b10000010
 PRN = 0b01000111
 HLT = 0b00000001
 MUL = 0b10100010 
+PUSH = 0b01000101 
+POP = 0b01000110
 
 class CPU:
     """Main CPU class."""
@@ -16,6 +18,7 @@ class CPU:
         self.ram = [0] * 256
         self.registers = [0] * 8
         self.pc = 0
+        self.sp = 7
 
     #access the RAM inside the CPU object MAR (Memory Address Register) - contains the address that is being read / written to
     def ram_read(self, MAR):
@@ -109,6 +112,7 @@ class CPU:
     def run(self):
         """Run the CPU."""
         running = True
+        self.registers[self.sp] = len(self.ram)
 
         while running:
             #read the memory address (MAR) that's stored in register PC (self.pc) store the result in IR (Instruction Register)
@@ -137,6 +141,26 @@ class CPU:
             elif IR == MUL:
                 self.registers[operand_a] *= self.registers[operand_b]
                 self.pc += 3
+
+            #Push
+            elif IR == PUSH:
+                given_register = self.ram[self.pc + 1]
+                value_in_register = self.registers[given_register]
+                # Decrement the stack pointer
+                self.registers[self.sp] -= 1
+                # Write the value of the given register to memory at SP location
+                self.ram[self.registers[self.sp]] = value_in_register
+                self.pc += 2
+
+            #Pop
+            elif IR == POP:
+                given_register = self.ram[self.pc + 1]
+                # write the value in memory at the top of stack to the given register
+                value_from_memory = self.ram[self.registers[self.sp]]
+                self.registers[given_register] = value_from_memory
+                # increment the stack pointer
+                self.registers[self.sp] += 1
+                self.pc += 2
 
             else:
                 sys.exit()
