@@ -6,9 +6,12 @@ import sys
 LDI = 0b10000010
 PRN = 0b01000111
 HLT = 0b00000001
+ADD = 0b10100000
 MUL = 0b10100010 
 PUSH = 0b01000101 
 POP = 0b01000110
+CALL = 0b01010000
+RET = 0b00010001 
 
 class CPU:
     """Main CPU class."""
@@ -19,6 +22,19 @@ class CPU:
         self.registers = [0] * 8
         self.pc = 0
         self.sp = 7
+        self.running = False
+
+        #Branchtable
+        self.branchtable = {}
+        self.branchtable[LDI] = self.ldi
+        self.branchtable[PRN] = self.prn
+        self.branchtable[HLT] = self.hlt 
+        self.branchtable[ADD] = self.add 
+        self.branchtable[MUL] = self.mul 
+        self.branchtable[PUSH] = self.push 
+        self.branchtable[POP] = self.pop 
+        self.branchtable[CALL] = self.call 
+        self.branchtable[RET] = self.ret
 
     #access the RAM inside the CPU object MAR (Memory Address Register) - contains the address that is being read / written to
     def ram_read(self, MAR):
@@ -89,6 +105,13 @@ class CPU:
         else:
             raise Exception("Unsupported ALU operation")
 
+        #function for adding and multiply
+        def op_helper(self, op):
+            operand_a = self.ram[self.pc + 1]
+            operand_b = self.ram[self.pc + 2]
+            self.alu(op, operand_a, operand_b)
+            self.pc += 3
+
     def trace(self):
         """
         Handy function to print out the CPU state. You might want to call this
@@ -109,58 +132,86 @@ class CPU:
 
         print()
 
+    #branch table commands
+    def ldi(self):
+        # gets the address for registry
+        operand_a = self.ram[self.pc + 1]
+        # gets the value for the registry
+        operand_b = self.ram[self.pc + 2]
+        # Assign value to Reg Key
+        self.registers[operand_a] = operand_b
+        # Update PC
+        self.pc += 3
+
+    def prn(self):
+        # get the address we want to print
+        operand_a = self.ram[self.pc + 1]
+        # Print Reg
+        print(self.registers[operand_a])
+        # Update PC
+        self.pc += 2
+
+    def hlt(self):
+        # Exit Loop
+        self.running = False
+        # Update PC
+        self.pc += 1
+
+    def add(self):
+        self.op_helper("ADD")
+
+    def mul(self):
+        self.op_helper("MUL")
+
+    def push(self):
+        given_register = self.ram[self.pc + 1]
+        value_in_register = self.registers[given_register]
+        # Decrement the stack pointer
+        self.registers[self.sp] -= 1
+        # Write the value of the given register to memory at SP location
+        self.ram[self.registers[self.sp]] = value_in_register
+        self.pc += 2
+
+    def pop(self):
+        given_register = self.ram[self.pc + 1]
+        # write the value in memory at the top of stack to the given register
+        value_from_memory = self.ram[self.registers[self.sp]]
+        self.registers[given_register] = value_from_memory
+        # increment the stack pointer
+        self.registers[self.sp] += 1
+        self.pc += 2
+
+    def call(self):
+        # Get the given register in the operand
+        given_register = self.ram[self.pc + 1]
+        # Store the return address (PC + 2) onto the stack
+        # decrement the stack pointer
+        self.registers[self.sp] -= 1
+        # write the return address
+        self.ram[self.registers[self.sp]] = self.pc + 2
+        # set pc to the value inside the given_register
+        self.pc = self.registers[given_register]
+
+    def ret(self):
+        # set the pc to the value at the top of the stack
+        self.pc = self.ram[self.registers[self.sp]]
+        # pop from stack
+        self.registers[self.sp] += 1
+
     def run(self):
         """Run the CPU."""
-        running = True
-        self.registers[self.sp] = len(self.ram)
+        self.running = True
+        #self.registers[self.sp] = len(self.ram)
 
-        while running:
+        while self.running:
             #read the memory address (MAR) that's stored in register PC (self.pc) store the result in IR (Instruction Register)
-            IR = self.ram_read(self.pc)
+            IR = self.pc
+            instance = self.ram[IR]
 
-            #read bytes at PC + 1 and PC + 2 from RAM into variables aperand_a and operand_b
-            operand_a = self.ram_read(self.pc + 1)
-            operand_b = self.ram_read(self.pc + 2)
+            try:
+                self.branchtable[instance]()
 
-            #Halt
-            if IR == HLT:
-                running = False
-                self.pc += 1
-
-            #Print
-            elif IR == PRN:
-                print(self.registers[operand_a])
-                self.pc += 2
-
-            #Load Immediate
-            elif IR == LDI:
-                self.registers[operand_a] = operand_b
-                self.pc += 3
-
-            #Multiply
-            elif IR == MUL:
-                self.registers[operand_a] *= self.registers[operand_b]
-                self.pc += 3
-
-            #Push
-            elif IR == PUSH:
-                given_register = self.ram[self.pc + 1]
-                value_in_register = self.registers[given_register]
-                # Decrement the stack pointer
-                self.registers[self.sp] -= 1
-                # Write the value of the given register to memory at SP location
-                self.ram[self.registers[self.sp]] = value_in_register
-                self.pc += 2
-
-            #Pop
-            elif IR == POP:
-                given_register = self.ram[self.pc + 1]
-                # write the value in memory at the top of stack to the given register
-                value_from_memory = self.ram[self.registers[self.sp]]
-                self.registers[given_register] = value_from_memory
-                # increment the stack pointer
-                self.registers[self.sp] += 1
-                self.pc += 2
-
-            else:
-                sys.exit()
+            except KeyError:
+                print(f"KeyError at {self.registers[self.ram[instance]]}")
+                sys.exit(1)
+                
