@@ -14,25 +14,28 @@ class CPU:
     def __init__(self):
         """Construct a new CPU."""
         self.ram = [0] * 256
-        self.reg = [0] * 8
+        self.registers = [0] * 8
         self.pc = 0
 
     #access the RAM inside the CPU object MAR (Memory Address Register) - contains the address that is being read / written to
     def ram_read(self, MAR):
         #accepts the address to read and return the value stored there
-        print(self.ram[MAR])
+        
         return self.ram[MAR]
 
     #access the RAM inside the CPU object MDR (Memory Data Register) - contains the data that was read or the data to write
-    def ram_write(self, MDR, MAR):
+    def ram_write(self, MAR, MDR):
         self.ram[MAR] = MDR
 
     def load(self):
         """Load a program into memory."""
 
-        address = 0
+        if len(sys.argv) != 2:
+            print("Usage: ls8.py filename")
+            sys.exit(1)
 
         try:
+            address = 0
             with open(sys.argv[1]) as f:
                 for line in f:
                     split_line = line.split('#')
@@ -41,8 +44,14 @@ class CPU:
                     if code_value == '':
                         continue
 
-                    num = int(split_line[0])
-                    self.ram[address] = num
+                    try:
+                        code_value = int(code_value, 2)
+
+                    except ValueError:
+                        print(f"Invalid Number: {code_value}")
+                        sys.exit(1)
+
+                    self.ram_write(address, code_value)
                     address += 1
 
         except FileNotFoundError:
@@ -70,8 +79,10 @@ class CPU:
         """ALU operations."""
 
         if op == "ADD":
-            self.reg[reg_a] += self.reg[reg_b]
+            self.registers[reg_a] += self.registers[reg_b]
         #elif op == "SUB": etc
+        elif op == "MUL":
+            self.registers[reg_a] *= self.registers[reg_b]
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -91,7 +102,7 @@ class CPU:
         ), end='')
 
         for i in range(8):
-            print(" %02X" % self.reg[i], end='')
+            print(" %02X" % self.registers[i], end='')
 
         print()
 
@@ -114,17 +125,18 @@ class CPU:
 
             #Print
             elif IR == PRN:
-                print(self.reg[operand_a])
+                print(self.registers[operand_a])
                 self.pc += 2
 
             #Load Immediate
             elif IR == LDI:
-                self.reg[operand_a] = operand_b
+                self.registers[operand_a] = operand_b
                 self.pc += 3
 
             #Multiply
             elif IR == MUL:
-                reg_1 = self.ram_read(self.pc + 1)
-                reg_2 = self.ram_read(self.pc + 2)
-                self.reg[reg_1] = self.reg[reg_1] * self.reg[reg_2]
+                self.registers[operand_a] *= self.registers[operand_b]
                 self.pc += 3
+
+            else:
+                sys.exit()
